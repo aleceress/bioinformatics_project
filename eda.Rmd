@@ -1,0 +1,58 @@
+---
+title: "Bioinformatics exam project: Disease subtype discovery using multi-omics data integration"
+author: "Alessia Cecere, Alessandro Di Gioacchino"
+date: "19 June 2023"
+csl: ieee.csl
+bibliography: references.bib
+output:
+  html_notebook:
+    toc: yes
+    number_sections: yes
+    toc_float: yes
+    theme: cerulean
+    fig_caption: yes
+---
+
+Install required packages:
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("curatedTCGAData");
+BiocManager::install("TCGAutils");
+BiocManager::install("TCGAbiolinks");
+
+install.packages("SNFtool");
+install.packages("caret");
+install.packages("cluster");
+install.packages("mclustcomp");
+```
+
+Download required packages:
+
+```{r}
+library("curatedTCGAData")
+library("TCGAbiolinks")
+library("TCGAutils")
+library("SNFtool")
+library("caret")
+library("cluster")
+library("mclustcomp")
+```
+model.extract()
+
+1. Download the Prostate adenocarcinoma dataset considering three different omics data sources (mRNA,
+miRNA and protein expression data). The TCGA code for the dataset is “PRAD”.
+
+```{r}
+assays <- c("miRNASeqGene", "RNASeq2Gene", "RPPAArray")
+
+mo <- curatedTCGAData(diseaseCode = "PRAD",
+                      assays = assays,
+                      version = "2.0.1",
+                      dry.run = FALSE)
+
+mo <- mo[, , paste0("PRAD", "_", assays, "-20160128")]
+mo
+```
