@@ -16,17 +16,18 @@ output:
 Install required packages:
 
 ```{r}
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
+if (!require("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
 
-BiocManager::install("curatedTCGAData");
-BiocManager::install("TCGAutils");
-BiocManager::install("TCGAbiolinks");
+BiocManager::install("curatedTCGAData")
+BiocManager::install("TCGAutils")
+BiocManager::install("TCGAbiolinks")
 
-install.packages("SNFtool");
-install.packages("caret");
-install.packages("cluster");
-install.packages("mclustcomp");
+install.packages("SNFtool")
+install.packages("caret")
+install.packages("cluster")
+install.packages("mclustcomp")
 ```
 
 Download required packages:
@@ -48,11 +49,109 @@ miRNA and protein expression data). The TCGA code for the dataset is “PRAD”.
 ```{r}
 assays <- c("miRNASeqGene", "RNASeq2Gene", "RPPAArray")
 
-mo <- curatedTCGAData(diseaseCode = "PRAD",
-                      assays = assays,
-                      version = "2.0.1",
-                      dry.run = FALSE)
-
+mo <- curatedTCGAData(
+  diseaseCode = "PRAD",
+  assays = assays,
+  version = "2.0.1",
+  dry.run = FALSE
+)
+# removing unused assay
 mo <- mo[, , paste0("PRAD", "_", assays, "-20160128")]
 mo
+```
+
+2. Pre-process the dataset following the same steps we used during lessons. During the filtering by variance,
+select the first 100 features having highest variance from each data source.
+
+```{r}
+#  retain only primary tumors
+primary <- TCGAutils::TCGAsampleSelect(colnames(mo), c("01"))
+mo <- mo[, primary, ]
+
+# checking for technical replicates (not present)
+check_rep <- anyReplicated(mo)
+print(check_rep)
+
+# removing FFPE (formalin-fixed, paraffin-embedded) samples
+no_ffpe <- which(as.data.frame(colData(mo))$patient.samples.sample.is_ffpe == "no")
+mo <- mo[, no_ffpe, ]
+
+# retrieve samples having all the considered omics
+complete <- intersectColumns(mo)
+# extract assays in list
+complete <- assays(complete)
+# obtain matrices samples x features:
+complete <- lapply(complete, FUN=t)
+
+# removing columns with at least one missing value
+complete[[1]] <- complete[[1]][, colSums(is.na(complete[[1]])) == 0]
+complete[[2]] <- complete[[2]][, colSums(is.na(complete[[2]])) == 0]
+complete[[3]] <- complete[[3]][, colSums(is.na(complete[[3]])) == 0]
+
+# removing features with near zero variance and retaining top 100 features having higher variance
+nf <- 100
+
+for(i in 1:length(complete)){
+    idx <- caret::nearZeroVar(complete[[i]])
+    message(paste("Removed ", length(idx), "features from", names(complete)[i]))
+    if(length(idx) != 0){
+        complete[[i]] <- complete[[i]][, -idx];
+    }
+    if(ncol(complete[[i]]) <= nf) next
+    vars <- apply(complete[[i]], 2, var);
+    idx <- sort(vars, index.return=TRUE, decreasing = TRUE)$ix;
+    complete[[i]] <- complete[[i]][, idx[1:nf]]
+}
+
+# standardizationg features using z-score
+zscore <- function(data){
+    
+    zscore_vec <- function(x) { return ((x - mean(x)) / sd(x))}
+    data <- apply(data, 2, zscore_vec)
+    
+    
+    return(data)
+}
+
+complete <- lapply(complete, zscore);
+
+# renaming samples
+for(v in 1:length(complete)){
+    rownames(complete[[v]]) <- substr(rownames(complete[[v]]), 1, 12);
+}
+```
+
+3. Download the disease subtypes (column “Subtype_Integrative” is the one containing the iCluster
+molecular subtypes). Note that not all subtypes are available for the set of samples having all the
+considered omics data sources, thus you need to retain from the multi-omics dataset only samples
+having an associated subtype.
+
+
+```{r}
+# downloading disease subtypes from TCGAbiolinks:
+subtypes <- as.data.frame(TCGAbiolinks::PanCancerAtlas_subtypes());
+subtypes <- subtypes[subtypes$cancer.type == "PRAD", ];
+
+# retaining only primary solid tumors
+subtypes <- subtypes[TCGAutils::TCGAsampleSelect(subtypes$pan.samplesID, "01"), ];
+
+# selecting subtypes samples that are also present in complete
+sub_select <- substr(subtypes$pan.samplesID,1,12) %in% rownames(complete[[1]]);
+subtypes <- subtypes[sub_select, ]
+rownames(subtypes) <- substr(subtypes$pan.samplesID, 1, 12);
+
+# selecting complete samples that are also present in subtypes
+sub_select <- rownames((complete[[1]])) %in% rownames(subtypes)
+complete[[1]] <- complete[[1]][sub_select, ]
+```
+
+4. Check that patients in multi-omics dataset and subtypes are in the same order.
+
+```{r}
+identical(rownames(subtypes), rownames(complete[[1]])) # the function returns FALSE, so they are not in the same order
+
+# reordering
+subtypes <- subtypes[rownames(complete[[1]]),]
+
+identical(rownames(subtypes), rownames(complete[[1]])) # now the order is the same
 ```
