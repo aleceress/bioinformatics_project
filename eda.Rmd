@@ -41,7 +41,6 @@ library("caret")
 library("cluster")
 library("mclustcomp")
 ```
-model.extract()
 
 1. Download the Prostate adenocarcinoma dataset considering three different omics data sources (mRNA,
 miRNA and protein expression data). The TCGA code for the dataset is “PRAD”.
@@ -136,22 +135,137 @@ subtypes <- subtypes[subtypes$cancer.type == "PRAD", ];
 subtypes <- subtypes[TCGAutils::TCGAsampleSelect(subtypes$pan.samplesID, "01"), ];
 
 # selecting subtypes samples that are also present in complete
-sub_select <- substr(subtypes$pan.samplesID,1,12) %in% rownames(complete[[1]]);
+sub_select <- substr(subtypes$pan.samplesID,1,12) %in% rownames(complete[[1]])
 subtypes <- subtypes[sub_select, ]
 rownames(subtypes) <- substr(subtypes$pan.samplesID, 1, 12);
 
 # selecting complete samples that are also present in subtypes
 sub_select <- rownames((complete[[1]])) %in% rownames(subtypes)
-complete[[1]] <- complete[[1]][sub_select, ]
+for(i in 1:length(complete))
+  complete[[i]] <- complete[[i]][sub_select, ]
+
 ```
+
 
 4. Check that patients in multi-omics dataset and subtypes are in the same order.
 
 ```{r}
 identical(rownames(subtypes), rownames(complete[[1]])) # the function returns FALSE, so they are not in the same order
+```
 
+```{r}
 # reordering
 subtypes <- subtypes[rownames(complete[[1]]),]
 
-identical(rownames(subtypes), rownames(complete[[1]])) # now the order is the same
+identical(rownames(subtypes), rownames(complete[[3]])) # now the order is the same
+```
+
+5. Integrate the data using Similarity Network Fusion with the scaled exponential euclidean distance.
+
+```{r}
+# compute similarity matrix for each data source using the scaled exponential euclidean distance
+W_list <- list();
+for(i in 1:length(complete)){
+    Dist <- (dist2(as.matrix(complete[[i]]), as.matrix(complete[[i]])))^(1/2);
+    W_list[[i]] <- affinityMatrix(Dist, K=20);
+}
+    
+# integration of multi-omics data by Similarity Network Fusion:
+W_int <- SNF(W_list, K=20, t=20);
+
+```
+
+6. Try to integrate the similarity matrices from each data source (computed by scaled exponential euclidean
+distance) using a simple average of the matrices. This can be considered as a trivial multi-omics data
+integration strategy.
+
+```{r}
+W_mean <- Reduce("+", W_list)
+W_mean <- W_mean/length(W_list)
+```
+
+7. Integrate the dataset using another data fusion method called NEMO [4] to obtain an
+integrated similarity matrix. NEMO implementation is available on github (https://github.com/Shamir-
+Lab/NEMO)
+
+```{r}
+download.file(url = "https://github.com/Shamir-Lab/NEMO/archive/refs/heads/master.zip", 
+              destfile = "NEMO-master.zip");
+
+unzip(zipfile = "NEMO-master.zip");
+file.remove("./NEMO-master.zip");
+source("./NEMO-master/NEMO/R/NEMO.R");
+```
+
+```{r}
+W_nemo = nemo.affinity.graph(W_list, k = 20)
+```
+
+8. Perform disease subtype discovery (number of clusters equal to the number of disease subtypes found
+by iCluster) using PAM algorithm [5] on the following similarity matrices:
+
+a. Similarity matrices obtained from single data sources (i.e. miRNA, mRNA, proteins) using the usual
+scaled exponential euclidean distance. Thus, you should obtain three different similarity matrices.
+To compute the corresponding distance matrix use this code: dist <- 1 - NetPreProc::Prob.norm(W).
+Prob.norm() function is in the NetPreProc CRAN package (https://cran.r-project.org/web/
+packages/NetPreProc/index.html). The idea is to normalize the similarity matrix before computing
+the corresponding distance.
+
+```{r}
+norm_Dist <- list()
+for(i in 1:length(complete)){
+    norm_Dist[[i]] <- 1 - NetPreProc::Prob.norm(W_list[[i]])
+}
+```
+
+```{r}
+k <- length(unique(subtypes$Subtype_Integrative));
+
+pam_Res_Single <- list()
+for(i in 1:length(norm_Dist)) {
+    D <- as.dist(norm_Dist[[i]]); 
+    pam_Res_Single[[i]] <- pam(D, k=k);
+}
+```
+
+b. Integrated matrix obtained using the average among matrices. Use dist <- 1 - NetPre-
+Proc::Prob.norm(W) to compute the distance matrix.
+
+```{r}
+norm_Dist <- 1 - NetPreProc::Prob.norm(W_mean)
+D <- as.dist(norm_Dist); 
+pam_Res_Mean <- pam(D, k=k);
+```
+
+c. Integrated matrix obtained using Similarity Network Fusion.
+
+```{r}
+norm_Dist <- 1 - NetPreProc::Prob.norm(W_int)
+D <- as.dist(norm_Dist); 
+pam_Res_SNF <- pam(D, k=k);
+```
+
+d. Integrated matrix obtained using NEMO. Use dist <- 1 - NetPreProc::Prob.norm(W)
+to compute the distance matrix.
+
+```{r}
+norm_Dist <- 1 - NetPreProc::Prob.norm(W_nemo)
+D <- as.dist(norm_Dist); 
+pam_Res_nemo <- pam(D, k=k);
+```
+
+9. NEMO provides the possibility of performing clustering using another approach called
+Spectral Clustering [6]. Use the function nemo.clustering() to test this approach.
+
+```{r}
+complete_T <- lapply(complete, FUN=t)
+spectral_Res_nemo <- nemo.clustering(complete_T, num.clusters=k, num.neighbors=20)
+```
+
+10. Apply Spectral Clustering on the integrated matrix obtained using Similarity Network
+Fusion (an implementation of spectral clustering is SNFtool::spectralClustering(), which is the same
+exploited in nemo.clustering()).
+
+```{r}
+spectral_Res_nemo <- SNFtool::spectralClustering(W_int, K=k)
 ```
