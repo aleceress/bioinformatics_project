@@ -81,11 +81,118 @@ complete <- intersectColumns(mo)
 complete <- assays(complete)
 # obtain matrices samples x features:
 complete <- lapply(complete, FUN=t)
+```
+
+***
+
+NEMO also works with partial datasets, so we check if the assays have any `na`
+(if not, removing them would result in the same dataset)
+
+```{r}
+
+length( complete[[ 1 ]][ , colSums( is.na( complete[[ 1 ]] )) == 0 ] )
+
+```
+
+--
+--Edit--
+The above actually counts how many elements of `complete[[ 1 ]]` are not `na`s
+--
+
+Apparently there are lots of `na`s, but just to make sure:
+
+```{r}
+
+length( complete[[ 1 ]] )
+
+```
+
+OK, maybe there are actually no `na`s
+
+```{r}
+
+length( colSums( is.na( complete[[ 1 ]] )) == 0 )
+
+```
+
+--
+--Edit--
+The above actually counts the number of columns with no `na`s
+
+indeed:
+```{r}
+
+dim( complete[[ 1 ]] )
+
+```
+--
+
+Asking Copilot..
+
+```{r}
+
+any( is.na( complete[[ 1 ]] ) )
+
+```
+
+So, apparently there are no `na`s
+
+```{r}
+
+# This is the number of `na`s per column
+# colSums( is.na( complete[[ 1 ]] ) )
+
+# Checking if any of the number of `na`s per column is different than zero
+any( colSums( is.na( complete[[ 1 ]] ) ) != 0 )
+
+```
+
+`complete[[ 1 ]]` has no `na`s
+Now we check the other two assays:
+
+```{r}
+
+list( any( colSums( is.na( complete[[ 2 ]] ) ) > 0 ),
+      any( colSums( is.na( complete[[ 3 ]] ) ) > 0 ))
+
+```
+
+Which means `complete[[ 3 ]]` contains some `na`s, but just to be sure
+
+```{r}
+
+any( colSums( is.na( complete[[ 3 ]] ) ) > 0 )
+
+```
+
+How many are there?
+
+```{r}
+
+length( complete[[ 3 ]][ , colSums( is.na( complete[[ 3 ]] ) ) > 0 ] )
+
+```
+
+So for now we do not remove `na`s from the dataset, and see how NEMO behaves
+(provided we can apply the other pre-processing techniques even on `na`s)
+
+--
+--Edit--
+We have to remove them, otherwise `nemo.affinity.graph` complains
+--
+
+***
+
+```{r}
 
 # removing columns with at least one missing value
 complete[[1]] <- complete[[1]][, colSums(is.na(complete[[1]])) == 0]
 complete[[2]] <- complete[[2]][, colSums(is.na(complete[[2]])) == 0]
 complete[[3]] <- complete[[3]][, colSums(is.na(complete[[3]])) == 0]
+
+```
+
+```{r}
 
 # removing features with near zero variance and retaining top 100 features having higher variance
 nf <- 100
@@ -118,6 +225,7 @@ complete <- lapply(complete, zscore);
 for(v in 1:length(complete)){
     rownames(complete[[v]]) <- substr(rownames(complete[[v]]), 1, 12);
 }
+
 ```
 
 3. Download the disease subtypes (column “Subtype_Integrative” is the one containing the iCluster
@@ -189,16 +297,84 @@ integrated similarity matrix. NEMO implementation is available on github (https:
 Lab/NEMO)
 
 ```{r}
-download.file(url = "https://github.com/Shamir-Lab/NEMO/archive/refs/heads/master.zip", 
-              destfile = "NEMO-master.zip");
+# download.file(url = "https://github.com/Shamir-Lab/NEMO/archive/refs/heads/master.zip", 
+#               destfile = "NEMO-master.zip");
 
-unzip(zipfile = "NEMO-master.zip");
-file.remove("./NEMO-master.zip");
+# unzip(zipfile = "NEMO-master.zip");
+# file.remove("./NEMO-master.zip");
+
 source("./NEMO-master/NEMO/R/NEMO.R");
 ```
-Compare PAM clustering with molecular disease subtypes
+
+***
+
+NEMO with `na`s
+
 ```{r}
-W_nemo = nemo.affinity.graph(W_list, k = 20)
+
+# W_nemo = nemo.affinity.graph( complete, k = 20 )
+# Error: `dim(X) must have a positive length`
+
+```
+
+```{r}
+
+dim( complete )
+
+```
+
+```{r}
+
+length( list( complete[[ 1 ]], complete[[ 2 ]], complete[[ 3 ]] ) )
+
+```
+
+```{r}
+
+complete_list <- list( complete[[ 1 ]], complete[[ 2 ]], complete[[ 3 ]] )
+complete_list <- lapply( complete_list, t )
+
+# rownames( complete_list[[ 1 ]] )
+
+```
+
+```{r}
+
+# W_nemo = nemo.affinity.graph( complete_list, k = 20 )
+# Same error as above
+
+```
+
+```{r}
+
+length( complete_list[[ 3 ]] )
+
+```
+
+```{r}
+
+class( complete_list[[ 1 ]] )
+
+```
+
+--
+--Edit--
+After removing `na`s
+
+```{r}
+
+W_nemo = nemo.affinity.graph( complete_list, k = 20 )
+
+```
+
+--
+
+***
+
+Compare PAM clustering with molecular disease subtypes
+
+```{r}
+# W_nemo = nemo.affinity.graph(W_list, k = 20)
 ```
 
 8. Perform disease subtype discovery (number of clusters equal to the number of disease subtypes found
