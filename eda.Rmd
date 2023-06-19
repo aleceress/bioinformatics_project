@@ -196,7 +196,7 @@ unzip(zipfile = "NEMO-master.zip");
 file.remove("./NEMO-master.zip");
 source("./NEMO-master/NEMO/R/NEMO.R");
 ```
-
+Compare PAM clustering with molecular disease subtypes
 ```{r}
 W_nemo = nemo.affinity.graph(W_list, k = 20)
 ```
@@ -232,8 +232,8 @@ b. Integrated matrix obtained using the average among matrices. Use dist <- 1 - 
 Proc::Prob.norm(W) to compute the distance matrix.
 
 ```{r}
-norm_Dist <- 1 - NetPreProc::Prob.norm(W_mean)
-D <- as.dist(norm_Dist); 
+norm_Dist_pam_mean <- 1 - NetPreProc::Prob.norm(W_mean)
+D <- as.dist(norm_Dist_pam_mean); 
 pam_Res_Mean <- pam(D, k=k);
 ```
 
@@ -267,5 +267,96 @@ Fusion (an implementation of spectral clustering is SNFtool::spectralClustering(
 exploited in nemo.clustering()).
 
 ```{r}
-spectral_Res_nemo <- SNFtool::spectralClustering(W_int, K=k)
+spectral_Res_SNF <- SNFtool::spectralClustering(W_int, K=k)
+```
+
+11. Compare the clusterings obtained by each considered approach w.r.t. the iCluster disease subtypes.
+Make tables and plots to show the results and discuss them.
+
+
+```{r}
+# convert disease subtypes to numeric vector:
+labels <- as.numeric(factor(subtypes$Subtype_Integrative, levels=unique(subtypes$Subtype_Integrative)));
+
+# compute measures:
+types <- c("rand", "adjrand", "nmi1");
+metrics_pam_single1 <- mclustcomp(pam_Res_Single[[1]]$clustering, labels, types=types);
+metrics_pam_single2 <- mclustcomp(pam_Res_Single[[2]]$clustering, labels, types=types);
+metrics_pam_single3 <- mclustcomp(pam_Res_Single[[3]]$clustering, labels, types=types);
+metrics_pam_mean <- mclustcomp(pam_Res_Mean$clustering, labels, types=types);
+metrics_pam_snf  <- mclustcomp(pam_Res_SNF$clustering, labels, types=types);
+metrics_pam_nemo  <- mclustcomp(pam_Res_nemo$clustering, labels, types=types);
+metrics_spectral_nemo  <- mclustcomp(spectral_Res_nemo, labels, types=types);
+metrics_spectral_snf  <- mclustcomp(spectral_Res_SNF, labels, types=types);
+
+metrics <- cbind(metrics_pam_single1, metrics_pam_single2[,-1], metrics_pam_single3[,-1], metrics_pam_mean[,-1], metrics_pam_snf[, -1], metrics_pam_nemo[, -1], metrics_spectral_nemo[,-1], metrics_spectral_snf[,-1])
+colnames(metrics) <- c("type", "PAM single 1", "PAM single 2", "PAM single 3", "PAM mean", "PAM SNF", "PAM NEMO", "Spectral NEMO", "Spectral_SNF")
+
+metrics
+```
+
+__Single1 + PAM__
+
+```{r}
+pca <- prcomp(t(complete[[1]]), scale = TRUE)
+plot(pca$x[, 1:2], col = pam_Res_Single[[1]]$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+```
+
+__Single2 + PAM__
+
+```{r}
+pca <- prcomp(t(complete[[2]]), scale = TRUE)
+plot(pca$x[, 1:2], col = pam_Res_Single[[2]]$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+```
+
+__Single3 + PAM__
+
+```{r}
+pca <- prcomp(t(complete[[3]]), scale = TRUE)
+plot(pca$x[, 1:2], col = pam_Res_Single[[3]]$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+```
+
+
+__Mean + PAM__
+
+```{r}
+pca <- prcomp(t(W_mean), scale = TRUE)
+plot(pca$x[, 1:2], col = pam_Res_Mean$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+```
+
+
+__SNF + PAM__
+```{r}
+pca <- prcomp(t(W_int), scale = TRUE)
+plot(pca$x[, 1:2], col = pam_Res_SNF$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+```
+
+__NEMO + PAM__
+
+```{r}
+pca <- prcomp(t(W_nemo), scale = TRUE)
+plot(pca$x[, 1:2], col = pam_Res_nemo$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+```
+
+__Spectral SNF__
+
+```{r}
+pca <- prcomp(t(W_int), scale = TRUE)
+plot(pca$x[, 1:2], col = spectral_Res_SNF, pch = 19, xlab = "PC1", ylab = "PC2")
+```
+
+Results barplot 
+
+```{r}
+barplot(as.matrix(metrics[,2:length(colnames(metrics))], labels = colnames(metrics)),beside=TRUE)
+```
+
+```{r}
+barplot(colMeans(metrics[,2:length(colnames(metrics))]))
 ```
