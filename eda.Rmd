@@ -471,11 +471,38 @@ colnames(metrics) <- c("type", "PAM single 1", "PAM single 2", "PAM single 3", "
 metrics
 ```
 
+```{r}
+
+library( scales )
+
+```
+
 __Single1 + PAM__
 
 ```{r}
-pca <- prcomp(t(complete[[1]]), scale = TRUE)
-plot(pca$x[, 1:2], col = pam_Res_Single[[1]]$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+png( "Single1.png", height = 720, width = 1280 )
+
+pca <- prcomp( t( complete[[ 1 ]]), scale = TRUE )
+plot(pca$x[ , 1:2 ],
+     col = alpha( pam_Res_Single[[ 1 ]]$clustering, 0.6 ),
+     pch = 19,
+     cex = 1.5,
+     frame.plot = TRUE,
+     xlab = "First principal component",
+     axes = FALSE,
+     ylab = "Second principal component",
+     main = "miRNA data source" )
+
+# axis( 1, labels = FALSE )
+# axis( 2, labels = FALSE )
+
+legend( "topright",
+        legend = c( "First cluster", "Second cluster", "Third cluster" ),
+        col = alpha( unique( pam_Res_Single[[ 1 ]]$clustering ), 0.6 ),
+        pch = 19 )
+
+dev.off()
 
 ```
 
