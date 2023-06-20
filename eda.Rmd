@@ -127,8 +127,6 @@ dim( complete[[ 1 ]] )
 ```
 --
 
-Asking Copilot..
-
 ```{r}
 
 any( is.na( complete[[ 1 ]] ) )
@@ -473,7 +471,42 @@ metrics
 
 ```{r}
 
-library( scales )
+library( scales )  # Needed for `alpha` (transparency)
+
+```
+
+```{r}
+
+export_scatter_plot <- function( dataset, labels, filename, plot_title,
+                                 legend_location = "bottomright" ) {
+  
+  if ( !dir.exists( "images" ) ) {
+    dir.create( "images" )
+  }
+    
+  png( paste( "./images/", filename, sep = "" ), height = 480, width = 640 )
+
+  pca <- prcomp( dataset, scale = TRUE )
+
+  plot( pca$x[ , 1:2 ],
+        col = alpha( labels, 0.6 ),
+        pch = 19,
+        cex = 1.5,
+        # frame.plot = TRUE,
+        xlab = "First principal component",
+        # axes = FALSE,
+        ylab = "Second principal component",
+        main = plot_title )
+
+  legend( legend_location,
+          legend = c( "First cluster", "Second cluster", "Third cluster" ),
+          bg = "transparent",
+          col = alpha( unique( labels ), 0.6 ),
+          pch = 19 )
+
+  dev.off()
+    
+}
 
 ```
 
@@ -481,44 +514,34 @@ __Single1 + PAM__
 
 ```{r}
 
-png( "Single1.png", height = 720, width = 1280 )
-
-pca <- prcomp( t( complete[[ 1 ]]), scale = TRUE )
-plot(pca$x[ , 1:2 ],
-     col = alpha( pam_Res_Single[[ 1 ]]$clustering, 0.6 ),
-     pch = 19,
-     cex = 1.5,
-     frame.plot = TRUE,
-     xlab = "First principal component",
-     axes = FALSE,
-     ylab = "Second principal component",
-     main = "miRNA data source" )
-
-# axis( 1, labels = FALSE )
-# axis( 2, labels = FALSE )
-
-legend( "topright",
-        legend = c( "First cluster", "Second cluster", "Third cluster" ),
-        col = alpha( unique( pam_Res_Single[[ 1 ]]$clustering ), 0.6 ),
-        pch = 19 )
-
-dev.off()
+export_scatter_plot( t( complete[[ 1 ]] ), pam_Res_Single[[ 1 ]]$clustering,
+                     "Single1.png", "miRNA data source" )
 
 ```
 
 __Single2 + PAM__
 
 ```{r}
-pca <- prcomp(t(complete[[2]]), scale = TRUE)
-plot(pca$x[, 1:2], col = pam_Res_Single[[2]]$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+# pca <- prcomp(t(complete[[2]]), scale = TRUE)
+# plot(pca$x[, 1:2], col = pam_Res_Single[[2]]$clustering, pch = 19,
+#      xlab = "PC1", ylab = "PC2")
+
+export_scatter_plot( t( complete[[ 2 ]] ), pam_Res_Single[[ 2 ]]$clustering,
+                     "Single2.png", "mRNA data source" )
 
 ```
 
 __Single3 + PAM__
 
 ```{r}
-pca <- prcomp(t(complete[[3]]), scale = TRUE)
-plot(pca$x[, 1:2], col = pam_Res_Single[[3]]$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+# pca <- prcomp(t(complete[[3]]), scale = TRUE)
+# plot( pca$x[, 1:2], col = pam_Res_Single[[3]]$clustering, pch = 19,
+#       xlab = "PC1", ylab = "PC2" )
+
+export_scatter_plot( t( complete[[ 3 ]] ), pam_Res_Single[[ 3 ]]$clustering,
+                     "Single3.png", "Proteins data source" )
 
 ```
 
@@ -526,32 +549,53 @@ plot(pca$x[, 1:2], col = pam_Res_Single[[3]]$clustering, pch = 19, xlab = "PC1",
 __Mean + PAM__
 
 ```{r}
-pca <- prcomp(t(W_mean), scale = TRUE)
-plot(pca$x[, 1:2], col = pam_Res_Mean$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+# pca <- prcomp(t(W_mean), scale = TRUE)
+# plot( pca$x[, 1:2], col = pam_Res_Mean$clustering, pch = 19, xlab = "PC1",
+#       ylab = "PC2" )
+
+export_scatter_plot( t( W_mean ), pam_Res_Mean$clustering, "Mean.png",
+                     "Matrices average integration" )
 
 ```
 
 
 __SNF + PAM__
 ```{r}
-pca <- prcomp(t(W_int), scale = TRUE)
-plot(pca$x[, 1:2], col = pam_Res_SNF$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+# pca <- prcomp(t(W_int), scale = TRUE)
+# plot( pca$x[, 1:2], col = pam_Res_SNF$clustering, pch = 19, xlab = "PC1",
+#       ylab = "PC2" )
+
+export_scatter_plot( t( W_int ), pam_Res_SNF$clustering, "SNF.png",
+                     "SNF integration" )
 
 ```
 
 __NEMO + PAM__
 
 ```{r}
-pca <- prcomp(t(W_nemo), scale = TRUE)
-plot(pca$x[, 1:2], col = pam_Res_nemo$clustering, pch = 19, xlab = "PC1", ylab = "PC2")
+
+# pca <- prcomp(t(W_nemo), scale = TRUE)
+# plot( pca$x[, 1:2], col = pam_Res_nemo$clustering, pch = 19, xlab = "PC1",
+#       ylab = "PC2" )
+
+export_scatter_plot( t( W_nemo ), pam_Res_nemo$clustering,
+                     "./images/NEMO.png", "NEMO integration" )
 
 ```
 
 __Spectral SNF__
 
 ```{r}
-pca <- prcomp(t(W_int), scale = TRUE)
-plot(pca$x[, 1:2], col = spectral_Res_SNF, pch = 19, xlab = "PC1", ylab = "PC2")
+
+# pca <- prcomp(t(W_int), scale = TRUE)
+# plot( pca$x[, 1:2], col = spectral_Res_SNF, pch = 19, xlab = "PC1",
+#       ylab = "PC2" )
+
+export_scatter_plot( t( W_int ), spectral_Res_SNF, "./images/Spectral.png",
+                     "Spectral clustering" )
+
 ```
 
 Results barplot 
