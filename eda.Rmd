@@ -7,6 +7,7 @@ date: "19 June 2023"
 Install required packages:
 
 ```{r}
+
 if (!require("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
 }
@@ -19,11 +20,13 @@ install.packages("SNFtool")
 install.packages("caret")
 install.packages("cluster")
 install.packages("mclustcomp")
+
 ```
 
-Download required packages:
+Load required packages:
 
 ```{r}
+
 library("curatedTCGAData")
 library("TCGAbiolinks")
 library("TCGAutils")
@@ -31,12 +34,16 @@ library("SNFtool")
 library("caret")
 library("cluster")
 library("mclustcomp")
+
 ```
 
-1. Download the Prostate adenocarcinoma dataset considering three different omics data sources (mRNA,
-miRNA and protein expression data). The TCGA code for the dataset is “PRAD”.
+
+1. Download the Prostate adenocarcinoma dataset considering three different
+omics data sources (mRNA, miRNA and protein expression data). The TCGA code for
+the dataset is “PRAD”.
 
 ```{r}
+
 assays <- c("miRNASeqGene", "RNASeq2Gene", "RPPAArray")
 
 mo <- curatedTCGAData(
@@ -45,33 +52,47 @@ mo <- curatedTCGAData(
   version = "2.0.1",
   dry.run = FALSE
 )
-# removing unused assay
+
+# Removing unused assay
 mo <- mo[, , paste0("PRAD", "_", assays, "-20160128")]
 mo
+
 ```
 
-2. Pre-process the dataset following the same steps we used during lessons. During the filtering by variance,
-select the first 100 features having highest variance from each data source.
+
+2. Pre-process the dataset following the same steps we used during lessons.
+During the filtering by variance, select the first 100 features having highest
+variance from each data source.
 
 ```{r}
-#  retain only primary tumors
+
+# Retain only primary tumors
 primary <- TCGAutils::TCGAsampleSelect(colnames(mo), c("01"))
 mo <- mo[, primary, ]
 
-# checking for technical replicates (not present)
+# Check for technical replicates (not present)
 check_rep <- anyReplicated(mo)
 print(check_rep)
 
-# removing FFPE (formalin-fixed, paraffin-embedded) samples
-no_ffpe <- which(as.data.frame(colData(mo))$patient.samples.sample.is_ffpe == "no")
+# Remove FFPE (formalin-fixed, paraffin-embedded) samples
+no_ffpe <- which(
+  as.data.frame(colData(mo))$patient.samples.sample.is_ffpe == "no")
+
 mo <- mo[, no_ffpe, ]
 
-# retrieve samples having all the considered omics
+# Retrieve samples having all the considered omics
 complete <- intersectColumns(mo)
-# extract assays in list
+
+# Extract assays in list
 complete <- assays(complete)
-# obtain matrices samples x features:
-complete <- lapply(complete, FUN=t)
+
+# Obtain matrices samples x features:
+complete <- lapply(complete, FUN = t)
+
+# Copy for later use with NEMO
+# Un-comment to try
+# complete_with_nas <- complete
+
 ```
 
 ***
@@ -85,12 +106,12 @@ length( complete[[ 1 ]][ , colSums( is.na( complete[[ 1 ]] )) == 0 ] )
 
 ```
 
+Apparently there are lots of `na`s, but just to make sure:
+
 --
 --Edit--
 The above actually counts how many elements of `complete[[ 1 ]]` are not `na`s
 --
-
-Apparently there are lots of `na`s, but just to make sure:
 
 ```{r}
 
@@ -111,11 +132,13 @@ length( colSums( is.na( complete[[ 1 ]] )) == 0 )
 The above actually counts the number of columns with no `na`s
 
 indeed:
+
 ```{r}
 
 dim( complete[[ 1 ]] )
 
 ```
+
 --
 
 ```{r}
@@ -174,7 +197,7 @@ We have to remove them, otherwise `nemo.affinity.graph` complains
 
 ```{r}
 
-# removing columns with at least one missing value
+# Remove columns with at least one missing value
 complete[[1]] <- complete[[1]][, colSums(is.na(complete[[1]])) == 0]
 complete[[2]] <- complete[[2]][, colSums(is.na(complete[[2]])) == 0]
 complete[[3]] <- complete[[3]][, colSums(is.na(complete[[3]])) == 0]
@@ -183,135 +206,171 @@ complete[[3]] <- complete[[3]][, colSums(is.na(complete[[3]])) == 0]
 
 ```{r}
 
-# removing features with near zero variance and retaining top 100 features having higher variance
+#   Remove features with near zero variance and retaining top 100 features
+# having higher variance
 nf <- 100
 
-for(i in 1:length(complete)){
+for (i in 1:length(complete)) {
     idx <- caret::nearZeroVar(complete[[i]])
-    message(paste("Removed ", length(idx), "features from", names(complete)[i]))
-    if(length(idx) != 0){
-        complete[[i]] <- complete[[i]][, -idx];
-    }
-    if(ncol(complete[[i]]) <= nf) next
-    vars <- apply(complete[[i]], 2, var);
-    idx <- sort(vars, index.return=TRUE, decreasing = TRUE)$ix;
+    
+    message(paste("Removed", length(idx), "features from",
+                  names(complete)[i]))
+    
+    if (length(idx) != 0)
+        complete[[i]] <- complete[[i]][, -idx]
+    
+    if (ncol(complete[[i]]) <= nf) next
+    vars <- apply(complete[[i]], 2, var)
+    idx <- sort(vars, index.return=TRUE, decreasing = TRUE)$ix
     complete[[i]] <- complete[[i]][, idx[1:nf]]
 }
 
-# standardizationg features using z-score
-zscore <- function(data){
+# Standardize features using z-score
+zscore <- function(data) {
     
-    zscore_vec <- function(x) { return ((x - mean(x)) / sd(x))}
+    zscore_vec <- function(x)
+      return((x - mean(x)) / sd(x))
+    
     data <- apply(data, 2, zscore_vec)
     
     
     return(data)
 }
 
-complete <- lapply(complete, zscore);
+complete <- lapply(complete, zscore)
 
-# renaming samples
-for(v in 1:length(complete)){
-    rownames(complete[[v]]) <- substr(rownames(complete[[v]]), 1, 12);
-}
+# Rename samples
+for (v in 1:length(complete))
+    rownames(complete[[v]]) <- substr(rownames(complete[[v]]), 1, 12)
 
 ```
 
-3. Download the disease subtypes (column “Subtype_Integrative” is the one containing the iCluster
-molecular subtypes). Note that not all subtypes are available for the set of samples having all the
-considered omics data sources, thus you need to retain from the multi-omics dataset only samples
-having an associated subtype.
 
+3. Download the disease subtypes (column “Subtype_Integrative” is the one
+   containing the iCluster molecular subtypes). Note that not all subtypes are
+   available for the set of samples having all the considered omics data
+   sources, thus you need to retain from the multi-omics dataset only samples
+   having an associated subtype.
 
 ```{r}
-# downloading disease subtypes from TCGAbiolinks:
-subtypes <- as.data.frame(TCGAbiolinks::PanCancerAtlas_subtypes());
-subtypes <- subtypes[subtypes$cancer.type == "PRAD", ];
 
-# retaining only primary solid tumors
-subtypes <- subtypes[TCGAutils::TCGAsampleSelect(subtypes$pan.samplesID, "01"), ];
+# Download disease subtypes from TCGAbiolinks
+subtypes <- as.data.frame(TCGAbiolinks::PanCancerAtlas_subtypes())
+subtypes <- subtypes[subtypes$cancer.type == "PRAD", ]
 
-# selecting subtypes samples that are also present in complete
-sub_select <- substr(subtypes$pan.samplesID,1,12) %in% rownames(complete[[1]])
+# Retain only primary solid tumors
+subtypes <- subtypes[
+  TCGAutils::TCGAsampleSelect(subtypes$pan.samplesID, "01"), ]
+
+# Select subtypes samples that are also present in `complete`
+sub_select <- substr(subtypes$pan.samplesID, 1, 12) %in%
+  rownames(complete[[1]])
+
 subtypes <- subtypes[sub_select, ]
 rownames(subtypes) <- substr(subtypes$pan.samplesID, 1, 12);
 
-# selecting complete samples that are also present in subtypes
+# Select complete samples that are also present in `subtypes`
 sub_select <- rownames((complete[[1]])) %in% rownames(subtypes)
-for(i in 1:length(complete))
+
+for (i in 1:length(complete))
   complete[[i]] <- complete[[i]][sub_select, ]
 
 ```
 
 
-4. Check that patients in multi-omics dataset and subtypes are in the same order.
+4. Check that patients in multi-omics dataset and subtypes are in the same
+   order.
 
 ```{r}
-identical(rownames(subtypes), rownames(complete[[1]])) # the function returns FALSE, so they are not in the same order
+
+identical(rownames(subtypes), rownames(complete[[1]]))
+# The function returns`FALSE`, so they are not in the same order
+
 ```
 
 ```{r}
-# reordering
-subtypes <- subtypes[rownames(complete[[1]]),]
 
-identical(rownames(subtypes), rownames(complete[[3]])) # now the order is the same
+#   Sort `subtypes` according to `complete[[1]]` (orders of `complete[[1]]`,
+# `complete[[2]]`, `complete[[3]]` are the same)
+subtypes <- subtypes[rownames(complete[[1]]), ]
+
+identical(rownames(subtypes), rownames(complete[[3]]))
+# Now the order is the same
+
 ```
 
-5. Integrate the data using Similarity Network Fusion with the scaled exponential euclidean distance.
+
+5. Integrate the data using Similarity Network Fusion with the scaled
+exponential euclidean distance.
 
 ```{r}
-# compute similarity matrix for each data source using the scaled exponential euclidean distance
-W_list <- list();
-for(i in 1:length(complete)){
-    Dist <- (dist2(as.matrix(complete[[i]]), as.matrix(complete[[i]])))^(1/2);
-    W_list[[i]] <- affinityMatrix(Dist, K=20);
+
+#   Compute similarity matrix for each data source using the scaled exponential
+# euclidean distance
+W_list <- list()
+
+for (i in 1:length(complete)) {
+    Dist <- (dist2(as.matrix(complete[[i]]), as.matrix(complete[[i]])))^(1 / 2)
+    W_list[[i]] <- affinityMatrix(Dist, K = 20)
 }
-    
-# integration of multi-omics data by Similarity Network Fusion:
-W_int <- SNF(W_list, K=20, t=20);
+
+# integration of multi-omics data by Similarity Network Fusion
+W_int <- SNF(W_list, K = 20, t = 20)
 
 ```
 
-6. Try to integrate the similarity matrices from each data source (computed by scaled exponential euclidean
-distance) using a simple average of the matrices. This can be considered as a trivial multi-omics data
-integration strategy.
+
+6. Try to integrate the similarity matrices from each data source (computed by
+   scaled exponential euclidean distance) using a simple average of the
+   matrices. This can be considered as a trivial multi-omics data integration
+   strategy.
 
 ```{r}
+
 W_mean <- Reduce("+", W_list)
-W_mean <- W_mean/length(W_list)
+W_mean <- W_mean / length(W_list)
+
 ```
 
-7. Integrate the dataset using another data fusion method called NEMO [4] to obtain an
-integrated similarity matrix. NEMO implementation is available on github (https://github.com/Shamir-
-Lab/NEMO)
+
+7. Integrate the dataset using another data fusion method called NEMO to obtain
+   an integrated similarity matrix. NEMO implementation is available on
+   GitHub (https://github.com/Shamir-Lab/NEMO)
 
 ```{r}
+
 folder_path <- "./NEMO-master"
 
-if (!file.exists(folder_path) ||  !file.info(folder_path)$isdir) {
-   download.file(url = "https://github.com/Shamir-Lab/NEMO/archive/refs/heads/master.zip", destfile = "NEMO-master.zip");
-   unzip(zipfile = "NEMO-master.zip");
-   file.remove("./NEMO-master.zip");
+if (!file.exists(folder_path) || !file.info(folder_path)$isdir) {
+   download.file(
+     url = "https://github.com/Shamir-Lab/NEMO/archive/refs/heads/master.zip",
+     destfile = "NEMO-master.zip")
+  
+   unzip(zipfile = "NEMO-master.zip")
+   file.remove("./NEMO-master.zip")
 } 
 
-source("./NEMO-master/NEMO/R/NEMO.R");
+source("./NEMO-master/NEMO/R/NEMO.R")
+
 ```
 
 ***
 
-NEMO with `na`s gives errors
+When called on a dataset with `na`s, NEMO errors out
 
 ```{r}
 
-# W_nemo = nemo.affinity.graph( complete, k = 20 )
+# W_nemo = nemo.affinity.graph( complete_with_nas, k = 20 )
 # Error: `dim(X) must have a positive length`
 
 ```
 
 ```{r}
 
-complete_list <- list( complete[[ 1 ]], complete[[ 2 ]], complete[[ 3 ]] )
-complete_list <- lapply( complete_list, t )
+# Debug: since `length( complete )` is `null`, we copy each assay into a list
+# complete_list <- list( complete[[ 1 ]], complete[[ 2 ]], complete[[ 3 ]] )
+# complete_list <- lapply( complete_list, t )
+
 ```
 
 ```{r}
@@ -327,105 +386,155 @@ After removing `na`s
 
 ```{r}
 
-W_nemo = nemo.affinity.graph( complete_list, k = 20 )
+# NEMO wants a list of matrices features x samples
+complete_t <- lapply( complete, FUN = t )
+
+W_nemo <- nemo.affinity.graph( complete_t, k = 20 )
 
 ```
 
 --
 
 
-1. Perform disease subtype discovery (number of clusters equal to the number of disease subtypes found
-by iCluster) using PAM algorithm [5] on the following similarity matrices:
+8. Perform disease subtype discovery (number of clusters equal to the number of
+   disease subtypes found by iCluster) using PAM algorithm on the following
+   similarity matrices:
 
-a. Similarity matrices obtained from single data sources (i.e. miRNA, mRNA, proteins) using the usual
-scaled exponential euclidean distance. Thus, you should obtain three different similarity matrices.
-To compute the corresponding distance matrix use this code: dist <- 1 - NetPreProc::Prob.norm(W).
-Prob.norm() function is in the NetPreProc CRAN package (https://cran.r-project.org/web/
-packages/NetPreProc/index.html). The idea is to normalize the similarity matrix before computing
-the corresponding distance.
+   a. Similarity matrices obtained from single data sources (i.e. miRNA, mRNA,
+      proteins) using the usual scaled exponential euclidean distance. Thus,
+      you should obtain three different similarity matrices. To compute the
+      corresponding distance matrix use this code:
+      `dist <- 1 - NetPreProc::Prob.norm(W)`
+      Prob.norm() function is in the NetPreProc CRAN package
+      (https://cran.r-project.org/web/packages/NetPreProc/index.html). The
+      idea is to normalize the similarity matrix before computing the
+      corresponding distance.
 
 ```{r}
+
 norm_Dist <- list()
-for(i in 1:length(complete)){
+
+for (i in 1:length(complete))
     norm_Dist[[i]] <- 1 - NetPreProc::Prob.norm(W_list[[i]])
-}
+
 ```
 
 ```{r}
-k <- length(unique(subtypes$Subtype_Integrative));
+
+k <- length(unique(subtypes$Subtype_Integrative))
 
 pam_Res_Single <- list()
-for(i in 1:length(norm_Dist)) {
-    D <- as.dist(norm_Dist[[i]]); 
-    pam_Res_Single[[i]] <- pam(D, k=k);
+
+for (i in 1:length(norm_Dist)) {
+    D <- as.dist(norm_Dist[[i]])
+    pam_Res_Single[[i]] <- pam(D, k = k)
 }
+
 ```
 
-b. Integrated matrix obtained using the average among matrices. Use dist <- 1 - NetPre-
-Proc::Prob.norm(W) to compute the distance matrix.
+   b. Integrated matrix obtained using the average among matrices. Use
+      `dist <- 1 - NetPreProc::Prob.norm(W)` to compute the distance matrix.
 
 ```{r}
+
 norm_Dist_pam_mean <- 1 - NetPreProc::Prob.norm(W_mean)
-D <- as.dist(norm_Dist_pam_mean); 
-pam_Res_Mean <- pam(D, k=k);
+D <- as.dist(norm_Dist_pam_mean)
+pam_Res_Mean <- pam(D, k = k)
+
 ```
 
-c. Integrated matrix obtained using Similarity Network Fusion.
+
+   c. Integrated matrix obtained using Similarity Network Fusion.
 
 ```{r}
+
 norm_Dist <- 1 - NetPreProc::Prob.norm(W_int)
-D <- as.dist(norm_Dist); 
-pam_Res_SNF <- pam(D, k=k);
+D <- as.dist(norm_Dist)
+pam_Res_SNF <- pam(D, k = k)
+
 ```
 
-d. Integrated matrix obtained using NEMO. Use dist <- 1 - NetPreProc::Prob.norm(W)
-to compute the distance matrix.
+
+   d. Integrated matrix obtained using NEMO. Use
+      `dist <- 1 - NetPreProc::Prob.norm(W)` to compute the distance matrix.
 
 ```{r}
+
 norm_Dist <- 1 - NetPreProc::Prob.norm(W_nemo)
-D <- as.dist(norm_Dist); 
-pam_Res_nemo <- pam(D, k=k);
+D <- as.dist(norm_Dist)
+pam_Res_nemo <- pam(D, k = k)
+
 ```
 
-9. NEMO provides the possibility of performing clustering using another approach called
-Spectral Clustering [6]. Use the function nemo.clustering() to test this approach.
+
+9. NEMO provides the possibility of performing clustering using another
+   approach called Spectral Clustering. Use the function `nemo.clustering()` to
+   test this approach.
 
 ```{r}
-complete_T <- lapply(complete, FUN=t)
-spectral_Res_nemo <- nemo.clustering(complete_T, num.clusters=k, num.neighbors=20)
+
+spectral_Res_nemo <- nemo.clustering(complete_t, num.clusters = k, 
+                                     num.neighbors = 20)
+
 ```
 
-10. Apply Spectral Clustering on the integrated matrix obtained using Similarity Network
-Fusion (an implementation of spectral clustering is SNFtool::spectralClustering(), which is the same
-exploited in nemo.clustering()).
+
+10. Apply Spectral Clustering on the integrated matrix obtained using
+    Similarity Network Fusion (an implementation of spectral clustering is
+    `SNFtool::spectralClustering()`, which is the same exploited in
+    `nemo.clustering()`).
 
 ```{r}
-spectral_Res_SNF <- SNFtool::spectralClustering(W_int, K=k)
+
+spectral_Res_SNF <- SNFtool::spectralClustering(W_int, K = k)
+
 ```
 
-11. Compare the clusterings obtained by each considered approach w.r.t. the iCluster disease subtypes.
-Make tables and plots to show the results and discuss them.
 
+11. Compare the clusterings obtained by each considered approach w.r.t. the
+    iCluster disease subtypes.
+    Make tables and plots to show the results and discuss them.
 
 ```{r}
-# convert disease subtypes to numeric vector:
-labels <- as.numeric(factor(subtypes$Subtype_Integrative, levels=unique(subtypes$Subtype_Integrative)));
 
-# compute measures:
-types <- c("rand", "adjrand", "nmi1");
-metrics_pam_single1 <- mclustcomp(pam_Res_Single[[1]]$clustering, labels, types=types);
-metrics_pam_single2 <- mclustcomp(pam_Res_Single[[2]]$clustering, labels, types=types);
-metrics_pam_single3 <- mclustcomp(pam_Res_Single[[3]]$clustering, labels, types=types);
-metrics_pam_mean <- mclustcomp(pam_Res_Mean$clustering, labels, types=types);
-metrics_pam_snf  <- mclustcomp(pam_Res_SNF$clustering, labels, types=types);
-metrics_pam_nemo  <- mclustcomp(pam_Res_nemo$clustering, labels, types=types);
-metrics_spectral_nemo  <- mclustcomp(spectral_Res_nemo, labels, types=types);
-metrics_spectral_snf  <- mclustcomp(spectral_Res_SNF, labels, types=types);
+# Convert disease subtypes to numeric vector
+labels <- as.numeric(factor(subtypes$Subtype_Integrative,
+                            levels = unique(subtypes$Subtype_Integrative)))
 
-metrics <- cbind(metrics_pam_single1, metrics_pam_single2[,-1], metrics_pam_single3[,-1], metrics_pam_mean[,-1], metrics_pam_snf[, -1], metrics_pam_nemo[, -1], metrics_spectral_nemo[,-1], metrics_spectral_snf[,-1])
-colnames(metrics) <- c("type", "PAM single 1", "PAM single 2", "PAM single 3", "PAM mean", "PAM SNF", "PAM NEMO", "Spectral NEMO", "Spectral_SNF")
+# Compute measures
+types <- c("rand", "adjrand", "nmi1")
+metrics_pam_single1 <- mclustcomp(pam_Res_Single[[1]]$clustering, labels,
+                                  types = types)
+
+metrics_pam_single2 <- mclustcomp(pam_Res_Single[[2]]$clustering, labels, 
+                                  types = types)
+
+metrics_pam_single3 <- mclustcomp(pam_Res_Single[[3]]$clustering, labels, 
+                                  types = types)
+
+metrics_pam_mean <- mclustcomp(pam_Res_Mean$clustering, labels, types = types)
+metrics_pam_snf <- mclustcomp(pam_Res_SNF$clustering, labels, types = types)
+metrics_pam_nemo <- mclustcomp(pam_Res_nemo$clustering, labels, types = types)
+metrics_spectral_nemo <- mclustcomp(spectral_Res_nemo, labels, types = types)
+metrics_spectral_snf <- mclustcomp(spectral_Res_SNF, labels, types = types)
+
+metrics <- cbind(
+  metrics_pam_single1,
+  metrics_pam_single2[, -1],
+  metrics_pam_single3[, -1],
+  metrics_pam_mean[, -1],
+  metrics_pam_snf[, -1],
+  metrics_pam_nemo[, -1],
+  metrics_spectral_nemo[, -1],
+  metrics_spectral_snf[, -1]
+)
+
+colnames(metrics) <- c("type", "PAM single 1", "PAM single 2", "PAM single 3",
+                       "PAM mean", "PAM SNF", "PAM NEMO", "Spectral NEMO", 
+                       "Spectral SNF")
 
 metrics
+
 ```
 
 ```{r}
@@ -443,7 +552,7 @@ export_scatter_plot <- function( dataset, labels, filename, plot_title,
     dir.create( "images" )
   }
     
-  png( paste( "./images/", filename, sep = "" ), height = 480, width = 640 )
+  png( paste0( "./images/", filename ), height = 480, width = 640 )
 
   pca <- prcomp( dataset, scale = TRUE )
 
@@ -460,7 +569,7 @@ export_scatter_plot <- function( dataset, labels, filename, plot_title,
   legend( legend_location,
           legend = c( "First cluster", "Second cluster", "Third cluster" ),
           bg = "transparent",
-          col = alpha( unique( labels ), 0.6 ),
+          col = alpha( sort( unique( labels ) ), 0.6 ),
           pch = 19 )
 
   dev.off()
@@ -468,6 +577,7 @@ export_scatter_plot <- function( dataset, labels, filename, plot_title,
 }
 
 ```
+
 
 __Single1 + PAM__
 
@@ -477,6 +587,7 @@ export_scatter_plot( t( complete[[ 1 ]] ), pam_Res_Single[[ 1 ]]$clustering,
                      "Single1.png", "miRNA data source" )
 
 ```
+
 
 __Single2 + PAM__
 
@@ -490,6 +601,7 @@ export_scatter_plot( t( complete[[ 2 ]] ), pam_Res_Single[[ 2 ]]$clustering,
                      "Single2.png", "mRNA data source" )
 
 ```
+
 
 __Single3 + PAM__
 
@@ -520,6 +632,7 @@ export_scatter_plot( t( W_mean ), pam_Res_Mean$clustering, "Mean.png",
 
 
 __SNF + PAM__
+
 ```{r}
 
 # pca <- prcomp(t(W_int), scale = TRUE)
@@ -531,6 +644,7 @@ export_scatter_plot( t( W_int ), pam_Res_SNF$clustering, "SNF.png",
 
 ```
 
+
 __NEMO + PAM__
 
 ```{r}
@@ -540,9 +654,11 @@ __NEMO + PAM__
 #       ylab = "PC2" )
 
 export_scatter_plot( t( W_nemo ), pam_Res_nemo$clustering,
-                     "./images/NEMO.png", "NEMO integration" )
+                     "NEMO.png", "NEMO integration",
+                     legend_location = "topright" )
 
 ```
+
 
 __Spectral SNF__
 
@@ -552,17 +668,47 @@ __Spectral SNF__
 # plot( pca$x[, 1:2], col = spectral_Res_SNF, pch = 19, xlab = "PC1",
 #       ylab = "PC2" )
 
-export_scatter_plot( t( W_int ), spectral_Res_SNF, "./images/Spectral.png",
+export_scatter_plot( t( W_int ), spectral_Res_SNF, "Spectral.png",
                      "Spectral clustering" )
 
 ```
 
-Results barplot 
+
+Performance indices barplot follows.
 
 ```{r}
-barplot(as.matrix(metrics[,2:length(colnames(metrics))], labels = colnames(metrics)),beside=TRUE)
+
+pdf( "./images/Performance indices.pdf" )
+
+colors <- c( "gray64", "gray32", "gray16" )
+
+barplot( as.matrix( metrics[ , 2 : length( colnames( metrics ) ) ],
+                    labels = colnames( metrics ) ),
+        main = "Performance indices",
+        beside = TRUE, col = colors, cex.axis = 0.7, cex.names = 0.7, las = 2 )
+
+# par( mar = c( 5, 4, 4, 8 ), xpd = TRUE )
+
+legend( 25.3, .6,
+        legend = c( "adjrand", "nm1", "rand" ),
+        cex = .8,
+        col = colors,
+        pch = 15 )
+
+dev.off()
+
 ```
 
 ```{r}
-barplot(colMeans(metrics[,2:length(colnames(metrics))]))
+
+pdf( "./images/Mean performance indices" )
+
+# Aggregate performance indices using mean
+barplot( colMeans( metrics[ , 2 : length( colnames( metrics ) ) ] ),
+         main = 'Mean performance indices',
+         cex.axis = 0.7, 
+         cex.names = 0.7, las = 2 )
+
+dev.off()
+
 ```
