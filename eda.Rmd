@@ -2,15 +2,6 @@
 title: "Bioinformatics exam project: Disease subtype discovery using multi-omics data integration"
 author: "Alessia Cecere, Alessandro Di Gioacchino"
 date: "19 June 2023"
-csl: ieee.csl
-bibliography: references.bib
-output:
-  html_notebook:
-    toc: yes
-    number_sections: yes
-    toc_float: yes
-    theme: cerulean
-    fig_caption: yes
 ---
 
 Install required packages:
@@ -317,41 +308,14 @@ NEMO with `na`s
 
 ```{r}
 
-dim( complete )
-
-```
-
-```{r}
-
-length( list( complete[[ 1 ]], complete[[ 2 ]], complete[[ 3 ]] ) )
-
-```
-
-```{r}
-
 complete_list <- list( complete[[ 1 ]], complete[[ 2 ]], complete[[ 3 ]] )
 complete_list <- lapply( complete_list, t )
-
-# rownames( complete_list[[ 1 ]] )
-
 ```
 
 ```{r}
 
 # W_nemo = nemo.affinity.graph( complete_list, k = 20 )
 # Same error as above
-
-```
-
-```{r}
-
-length( complete_list[[ 3 ]] )
-
-```
-
-```{r}
-
-class( complete_list[[ 1 ]] )
 
 ```
 
@@ -367,15 +331,8 @@ W_nemo = nemo.affinity.graph( complete_list, k = 20 )
 
 --
 
-***
 
-Compare PAM clustering with molecular disease subtypes
-
-```{r}
-# W_nemo = nemo.affinity.graph(W_list, k = 20)
-```
-
-8. Perform disease subtype discovery (number of clusters equal to the number of disease subtypes found
+1. Perform disease subtype discovery (number of clusters equal to the number of disease subtypes found
 by iCluster) using PAM algorithm [5] on the following similarity matrices:
 
 a. Similarity matrices obtained from single data sources (i.e. miRNA, mRNA, proteins) using the usual
