@@ -88,11 +88,6 @@ complete <- assays(complete)
 
 # Obtain matrices samples x features:
 complete <- lapply(complete, FUN = t)
-
-# Copy for later use with NEMO
-# Un-comment to try
-# complete_with_nas <- complete
-
 ```
 
 ***
@@ -102,52 +97,11 @@ NEMO also works with partial datasets, so we check if the assays have any `na`
 
 ```{r}
 
-length( complete[[ 1 ]][ , colSums( is.na( complete[[ 1 ]] )) == 0 ] )
-
-```
-
-Apparently there are lots of `na`s, but just to make sure:
-
---
---Edit--
-The above actually counts how many elements of `complete[[ 1 ]]` are not `na`s
---
-
-```{r}
-
-length( complete[[ 1 ]] )
-
-```
-
-OK, maybe there are actually no `na`s
-
-```{r}
-
-length( colSums( is.na( complete[[ 1 ]] )) == 0 )
-
-```
-
---
---Edit--
-The above actually counts the number of columns with no `na`s
-
-indeed:
-
-```{r}
-
-dim( complete[[ 1 ]] )
-
-```
-
---
-
-```{r}
-
 any( is.na( complete[[ 1 ]] ) )
 
 ```
 
-So, apparently there are no `na`s
+So, apparently there are no `na`s in `complete[[1]]`
 
 ```{r}
 
@@ -159,7 +113,7 @@ any( colSums( is.na( complete[[ 1 ]] ) ) != 0 )
 
 ```
 
-`complete[[ 1 ]]` has no `na`s
+`complete[[ 1 ]]` has no `na`s.
 Now we check the other two assays:
 
 ```{r}
@@ -185,15 +139,14 @@ length( complete[[ 3 ]][ , colSums( is.na( complete[[ 3 ]] ) ) > 0 ] )
 
 ```
 
-So for now we do not remove `na`s from the dataset, and see how NEMO behaves
-(provided we can apply the other pre-processing techniques even on `na`s)
+So we keep a copy of complete with `na`'s, to use in NEMO (provided we can apply the other pre-processing techniques even on `na`s)
 
---
---Edit--
-We have to remove them, otherwise `nemo.affinity.graph` complains
---
+```{r}
+# Copy for later use with NEMO
+# Un-comment to try
+# complete_with_nas <- complete
+```
 
-***
 
 ```{r}
 
@@ -380,9 +333,7 @@ When called on a dataset with `na`s, NEMO errors out
 
 ```
 
---
---Edit--
-After removing `na`s
+When we use the matrix without `na`s:
 
 ```{r}
 
@@ -392,8 +343,6 @@ complete_t <- lapply( complete, FUN = t )
 W_nemo <- nemo.affinity.graph( complete_t, k = 20 )
 
 ```
-
---
 
 
 8. Perform disease subtype discovery (number of clusters equal to the number of
