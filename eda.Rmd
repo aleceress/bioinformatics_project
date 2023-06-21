@@ -478,9 +478,9 @@ metrics <- cbind(
   metrics_spectral_snf[, -1]
 )
 
-colnames(metrics) <- c("type", "PAM single 1", "PAM single 2", "PAM single 3",
-                       "PAM mean", "PAM SNF", "PAM NEMO", "Spectral NEMO", 
-                       "Spectral SNF")
+colnames(metrics) <- c("type", "mRNA + PAM", "miRNA + PAM", "Protein + PAM",
+                       "Average + PAM", "SNF + PAM", "NEMO + PAM", "NEMO + Spectral", 
+                       "SNF + Spectral")
 
 metrics
 
