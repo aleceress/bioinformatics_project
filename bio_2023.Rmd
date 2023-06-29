@@ -542,10 +542,6 @@ __Single2 + PAM__
 
 ```{r}
 
-# pca <- prcomp(t(complete[[2]]), scale = TRUE)
-# plot(pca$x[, 1:2], col = pam_Res_Single[[2]]$clustering, pch = 19,
-#      xlab = "PC1", ylab = "PC2")
-
 export_scatter_plot( t( complete[[ 2 ]] ), pam_Res_Single[[ 2 ]]$clustering,
                      "Single2.png", "mRNA data source" )
 
@@ -555,10 +551,6 @@ export_scatter_plot( t( complete[[ 2 ]] ), pam_Res_Single[[ 2 ]]$clustering,
 __Single3 + PAM__
 
 ```{r}
-
-# pca <- prcomp(t(complete[[3]]), scale = TRUE)
-# plot( pca$x[, 1:2], col = pam_Res_Single[[3]]$clustering, pch = 19,
-#       xlab = "PC1", ylab = "PC2" )
 
 export_scatter_plot( t( complete[[ 3 ]] ), pam_Res_Single[[ 3 ]]$clustering,
                      "Single3.png", "Proteins data source" )
@@ -570,10 +562,6 @@ __Mean + PAM__
 
 ```{r}
 
-# pca <- prcomp(t(W_mean), scale = TRUE)
-# plot( pca$x[, 1:2], col = pam_Res_Mean$clustering, pch = 19, xlab = "PC1",
-#       ylab = "PC2" )
-
 export_scatter_plot( t( W_mean ), pam_Res_Mean$clustering, "Mean.png",
                      "Matrices average integration" )
 
@@ -583,10 +571,6 @@ export_scatter_plot( t( W_mean ), pam_Res_Mean$clustering, "Mean.png",
 __SNF + PAM__
 
 ```{r}
-
-# pca <- prcomp(t(W_int), scale = TRUE)
-# plot( pca$x[, 1:2], col = pam_Res_SNF$clustering, pch = 19, xlab = "PC1",
-#       ylab = "PC2" )
 
 export_scatter_plot( t( W_int ), pam_Res_SNF$clustering, "SNF.png",
                      "SNF integration" )
@@ -598,10 +582,6 @@ __NEMO + PAM__
 
 ```{r}
 
-# pca <- prcomp(t(W_nemo), scale = TRUE)
-# plot( pca$x[, 1:2], col = pam_Res_nemo$clustering, pch = 19, xlab = "PC1",
-#       ylab = "PC2" )
-
 export_scatter_plot( t( W_nemo ), pam_Res_nemo$clustering,
                      "NEMO.png", "NEMO integration",
                      legend_location = "topright" )
@@ -612,10 +592,6 @@ export_scatter_plot( t( W_nemo ), pam_Res_nemo$clustering,
 __Spectral SNF__
 
 ```{r}
-
-# pca <- prcomp(t(W_int), scale = TRUE)
-# plot( pca$x[, 1:2], col = spectral_Res_SNF, pch = 19, xlab = "PC1",
-#       ylab = "PC2" )
 
 export_scatter_plot( t( W_int ), spectral_Res_SNF, "Spectral.png",
                      "Spectral clustering" )
@@ -635,8 +611,6 @@ barplot( as.matrix( metrics[ , 2 : length( colnames( metrics ) ) ],
                     labels = colnames( metrics ) ),
         main = "Performance indices",
         beside = TRUE, col = colors, cex.axis = 0.7, cex.names = 0.7, las = 2 )
-
-# par( mar = c( 5, 4, 4, 8 ), xpd = TRUE )
 
 legend( 25.3, .6,
         legend = c( "adjrand", "nm1", "rand" ),
