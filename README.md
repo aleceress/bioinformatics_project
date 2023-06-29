@@ -13,7 +13,7 @@ metabolome. The recollection of data at these various levels is referred to as _
 In this work, we apply and compare different approaches to perform disease subtype discovery from multi-omics data, in the context of __prostate cancer__.
 
 - __Experiments__ can be reproduced from [`bio_2023.Rmd`](https://github.com/aleceress/bioinformatics_project/blob/master/bio_2023.Rmd)
-- A complete description of the __project__ can be found in [report.pdf](https://github.com/aleceress/bioinformatics_project/blob/master/report.pdf)
+- A complete description of the __project__ can be found in [`report.pdf`](https://github.com/aleceress/bioinformatics_project/blob/master/report.pdf)
 
 ![img](images/Spectral.png)
 
